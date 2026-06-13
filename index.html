@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AFL Stats · Ask the AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <span class="brand-mark">AFL</span>
+        <span class="brand-text">Stats <em>· 2024 Season</em></span>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab is-active" data-view="ai" role="tab">Ask the AI</button>
+        <button class="tab" data-view="ladder" role="tab">Ladder</button>
+        <button class="tab" data-view="teams" role="tab">Teams</button>
+        <button class="tab" data-view="players" role="tab">Players</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- AI ASSISTANT -->
+    <section id="view-ai" class="view is-active">
+      <div class="ai-panel">
+        <div class="ai-head">
+          <h1>Ask about the 2024 AFL season</h1>
+          <p class="muted">Ask in plain English — ladders, scores, percentages, top players and head-to-heads.</p>
+        </div>
+
+        <div id="chat" class="chat" aria-live="polite"></div>
+
+        <form id="ask-form" class="ask-form" autocomplete="off">
+          <input id="ask-input" class="ask-input" type="text"
+                 placeholder="e.g. Who finished top of the ladder?" />
+          <button class="ask-btn" type="submit">Ask</button>
+        </form>
+
+        <div class="suggestions">
+          <span class="muted">Try:</span>
+          <button class="chip">Who won the most games?</button>
+          <button class="chip">Top of the ladder?</button>
+          <button class="chip">Best percentage?</button>
+          <button class="chip">Top goalkicker?</button>
+          <button class="chip">Brisbane vs Sydney</button>
+          <button class="chip">Highest scoring team?</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- LADDER -->
+    <section id="view-ladder" class="view">
+      <h2>Home &amp; Away Ladder</h2>
+      <div class="table-scroll">
+        <table id="ladder-table" class="data-table">
+          <thead>
+            <tr>
+              <th>#</th><th class="ta-left">Team</th><th>P</th><th>W</th><th>L</th><th>D</th>
+              <th>For</th><th>Agst</th><th>%</th><th>Pts</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TEAMS -->
+    <section id="view-teams" class="view">
+      <h2>Teams</h2>
+      <div id="team-grid" class="card-grid"></div>
+    </section>
+
+    <!-- PLAYERS -->
+    <section id="view-players" class="view">
+      <h2>Leading Goalkickers</h2>
+      <div class="table-scroll">
+        <table id="players-table" class="data-table">
+          <thead>
+            <tr><th>#</th><th class="ta-left">Player</th><th class="ta-left">Team</th><th>Goals</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p class="muted">Illustrative 2024 AFL season dataset · built-in offline Q&amp;A engine.
+      Optional Claude API integration available — see <code>README.md</code>.</p>
+    </div>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="ai.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
