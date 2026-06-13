@@ -72,6 +72,29 @@ Without a server it still runs as a static page (offline snapshot only) — open
 `index.html` directly, or `python3 -m http.server 8000`. Live and history views
 need the proxy, so use `node server.js` for the full experience.
 
+## Deploy to Vercel
+
+The repo is Vercel-ready as a **static site + serverless functions** (no build
+step). The pages are served statically and the data proxy runs as functions:
+
+| Route | File | Purpose |
+|-------|------|---------|
+| `/api/afl` | `api/afl.js` | Squiggle proxy (live + historical) |
+| `/api/ask` | `api/ask.js` | Optional Claude answers |
+
+`vercel.json` pins the project to no framework / no build with `outputDirectory: "."`,
+so Vercel serves the static files and only invokes a function for `/api/*`.
+
+Just import the repo into Vercel and deploy — live data works out of the box
+(Vercel functions have outbound internet). For the optional Claude fallback,
+add `ANTHROPIC_API_KEY` in the Vercel project's Environment Variables and set
+`window.AFL_AI_CONFIG = { endpoint: "/api/ask" }` in `index.html`.
+
+> If you previously deployed and saw `FUNCTION_INVOCATION_FAILED`, it was because
+> `server.js` (a long-running Node server) can't run as a Vercel function. The
+> `api/` functions above are the Vercel-native equivalents; `server.js` remains
+> for local use.
+
 ## Optional: Claude-backed answers
 
 To let the AI handle free-form questions the built-in engine can't match,

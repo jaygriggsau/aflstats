@@ -1,0 +1,12 @@
+{
+  "name": "aflstats",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AFL stats page with live + historical data and an AI Q&A assistant",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
