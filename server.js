@@ -18,6 +18,13 @@ const PORT = process.env.PORT || 3000;
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 
+// Squiggle asks that callers identify themselves with a contact in the UA.
+const SQUIGGLE_BASE = "https://api.squiggle.com.au/";
+const SQUIGGLE_UA = process.env.SQUIGGLE_UA || "aflstats-demo/1.0 (https://github.com/jaygriggsau/aflstats)";
+// Only these query "kinds" may be proxied — keeps the endpoint from being an open relay.
+const ALLOWED_Q = new Set(["games", "standings", "teams", "tips", "ladder"]);
+const sqCache = new Map(); // q -> { t, body }
+
 const MIME = {
   ".html": "text/html", ".css": "text/css", ".js": "text/javascript",
   ".json": "application/json", ".ico": "image/x-icon",
@@ -50,7 +57,43 @@ async function askClaude({ question, season, teams, goalkickers }) {
   return (data.content || []).map((b) => b.text || "").join("").trim();
 }
 
+async function proxySquiggle(q) {
+  // q looks like "standings;year=2024" or "games;year=2024;round=3"
+  const kind = q.split(";")[0].trim().toLowerCase();
+  if (!ALLOWED_Q.has(kind)) throw new Error(`query "${kind}" not allowed`);
+
+  // live data: short cache; historical (a past year): long cache
+  const pastYear = /year=(\d{4})/.exec(q);
+  const isHistory = pastYear && +pastYear[1] < new Date().getFullYear();
+  const ttl = isHistory ? 24 * 3600 * 1000 : 20 * 1000;
+
+  const hit = sqCache.get(q);
+  if (hit && Date.now() - hit.t < ttl) return hit.body;
+
+  const res = await fetch(`${SQUIGGLE_BASE}?q=${encodeURIComponent(q)}`, {
+    headers: { "User-Agent": SQUIGGLE_UA, Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`Squiggle ${res.status}`);
+  const body = await res.text();
+  sqCache.set(q, { t: Date.now(), body });
+  return body;
+}
+
 const server = http.createServer(async (req, res) => {
+  // Live/historical AFL data proxy -> Squiggle
+  if (req.method === "GET" && req.url.startsWith("/api/afl")) {
+    const q = new URL(req.url, "http://localhost").searchParams.get("q") || "";
+    try {
+      const body = await proxySquiggle(q);
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(body);
+    } catch (e) {
+      res.writeHead(502, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // API route
   if (req.method === "POST" && req.url === "/api/ask") {
     let body = "";

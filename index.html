@@ -16,10 +16,13 @@
       </div>
       <nav class="tabs" role="tablist">
         <button class="tab is-active" data-view="ai" role="tab">Ask the AI</button>
+        <button class="tab" data-view="live" role="tab">Live <span class="live-dot" hidden></span></button>
         <button class="tab" data-view="ladder" role="tab">Ladder</button>
+        <button class="tab" data-view="history" role="tab">History</button>
         <button class="tab" data-view="teams" role="tab">Teams</button>
         <button class="tab" data-view="players" role="tab">Players</button>
       </nav>
+      <span id="data-source" class="source-badge" title="Data source">…</span>
     </div>
   </header>
 
@@ -52,9 +55,27 @@
       </div>
     </section>
 
+    <!-- LIVE -->
+    <section id="view-live" class="view">
+      <div class="section-head">
+        <h2>Live &amp; Latest</h2>
+        <div class="head-actions">
+          <span id="live-round" class="muted"></span>
+          <button id="live-refresh" class="mini-btn">↻ Refresh</button>
+          <label class="toggle"><input id="live-auto" type="checkbox" checked /> Auto</label>
+        </div>
+      </div>
+      <p class="muted note">Live match scores and progress. Player-level live stats aren't
+        available from free sources — scores, quarters and margins update in real time.</p>
+      <div id="live-board"><p class="muted">Loading current round…</p></div>
+    </section>
+
     <!-- LADDER -->
     <section id="view-ladder" class="view">
-      <h2>Home &amp; Away Ladder</h2>
+      <div class="section-head">
+        <h2>Ladder</h2>
+        <select id="ladder-year" class="year-select"></select>
+      </div>
       <div class="table-scroll">
         <table id="ladder-table" class="data-table">
           <thead>
@@ -66,6 +87,27 @@
           <tbody></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="view-history" class="view">
+      <div class="section-head">
+        <h2>Historical Stats</h2>
+        <select id="history-year" class="year-select"></select>
+      </div>
+      <p class="muted note">Deep season data back to 1897 — final ladder, every result and
+        season records, pulled live from the Squiggle API when available.</p>
+      <div id="history-summary" class="summary-cards"></div>
+      <h3 class="sub">Final Ladder</h3>
+      <div class="table-scroll">
+        <table id="history-ladder" class="data-table">
+          <thead><tr><th>#</th><th class="ta-left">Team</th><th>P</th><th>W</th><th>L</th><th>D</th>
+            <th>For</th><th>Agst</th><th>%</th><th>Pts</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h3 class="sub">Results</h3>
+      <div id="history-results" class="results-list"></div>
     </section>
 
     <!-- TEAMS -->
@@ -95,7 +137,10 @@
     </div>
   </footer>
 
+  <!-- To enable the optional Claude free-form fallback, set the endpoint:
+       <script>window.AFL_AI_CONFIG = { endpoint: "/api/ask" };</script> -->
   <script src="data.js"></script>
+  <script src="afl-data.js"></script>
   <script src="ai.js"></script>
   <script src="app.js"></script>
 </body>

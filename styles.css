@@ -117,6 +117,66 @@ h2 { font-size: 22px; margin: 0 0 16px; }
 .stat-list li:last-child { border-bottom: none; }
 .stat-list span { color: var(--muted); }
 
+/* source badge + live dot */
+.source-badge { font-size: 11px; font-weight: 700; letter-spacing: .3px; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+.source-badge.is-live { color: #0b3; background: rgba(0,187,68,.12); border: 1px solid rgba(0,187,68,.4); }
+.source-badge.is-offline { color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); }
+.live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ff3b30; margin-left: 4px; animation: pulse 1.3s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* section heads / controls */
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.section-head h2 { margin: 0; }
+.head-actions { display: flex; align-items: center; gap: 12px; }
+.note { font-size: 13px; margin: -4px 0 16px; }
+.sub { font-size: 16px; margin: 22px 0 10px; color: var(--muted); }
+.sub.live-h { color: #ff5b50; }
+.year-select, .mini-btn {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 12px; font-size: 14px; cursor: pointer;
+}
+.year-select:focus { outline: none; border-color: var(--accent-2); }
+.mini-btn:hover { border-color: var(--accent-2); }
+.toggle { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+/* live game cards */
+.game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.game { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.game.live { border-color: rgba(255,59,48,.5); box-shadow: 0 0 0 1px rgba(255,59,48,.15); }
+.g-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.g-venue { font-size: 11px; color: var(--muted); }
+.pill { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
+.pill.live { color: #fff; background: #ff3b30; }
+.pill.done { color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); }
+.pill.soon { color: var(--accent-2); background: rgba(0,163,224,.12); }
+.g-side { display: flex; align-items: center; gap: 9px; padding: 5px 0; }
+.g-side .g-name { flex: 1; font-size: 15px; }
+.g-side .g-score { font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }
+.g-side.win .g-name, .g-side.win .g-score { color: var(--gold); }
+.prog { height: 5px; background: var(--panel-2); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.prog i { display: block; height: 100%; background: #ff3b30; }
+
+/* summary cards */
+.summary-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.sumcard { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.sumcard span { display: block; color: var(--muted); font-size: 12px; }
+.sumcard b { font-size: 24px; }
+.sumcard small { display: block; color: var(--muted); margin-top: 2px; }
+
+/* results list */
+.results-list { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.result-row { display: grid; grid-template-columns: 48px 1fr auto 1fr; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.result-row:last-child { border-bottom: none; }
+.result-row:hover { background: var(--panel); }
+.r-round { color: var(--muted); font-size: 12px; }
+.r-team { display: flex; align-items: center; gap: 7px; }
+.r-team:last-of-type { justify-content: flex-end; }
+.r-team.win { color: var(--gold); font-weight: 700; }
+.r-score { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.empty { background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 22px; text-align: center; color: var(--muted); font-size: 14px; }
+.empty code { font-size: 12px; }
+
 /* footer */
 .site-footer { border-top: 1px solid var(--line); padding: 18px 0; }
 .site-footer p { margin: 0; font-size: 13px; }

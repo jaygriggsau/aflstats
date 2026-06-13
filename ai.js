@@ -171,10 +171,87 @@ const AflAI = (() => {
     },
   ];
 
+  /* ---- live/historical handlers backed by AflData (async) ---- */
+  async function dynamicAnswer(question, t) {
+    if (typeof AflData === "undefined") return null;
+
+    // Live current-round scores
+    if (has(t, "live", "score now", "playing now", "current game", "current score",
+            "who is winning", "whos winning", "today", "scores")) {
+      try {
+        const snap = await AflData.roundSnapshot();
+        if (AflData.source !== "live") return null; // let offline intents answer
+        if (snap.live.length) {
+          return "Live now: " + snap.live.map((g) =>
+            `<b>${g.home.name}</b> ${g.home.score}–${g.away.score} <b>${g.away.name}</b> (${g.timestr || "live"})`
+          ).join("<br>");
+        }
+        if (snap.recent.length) {
+          return `No games are live right now. Latest results (Round ${snap.round}):<br>` +
+            snap.recent.map((g) => `${g.home.name} ${g.home.score}–${g.away.score} ${g.away.name}`).join("<br>");
+        }
+        if (snap.upcoming.length) {
+          return `Nothing live. Next up (Round ${snap.round}): ` +
+            snap.upcoming.map((g) => `${g.home.name} v ${g.away.name}`).join(", ") + ".";
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    // Current-season ladder questions — prefer LIVE standings when reachable
+    const ladderQ = has(t, "ladder", "top", "lead", "first", "minor premier", "most wins",
+                        "most games", "best percentage", "wooden spoon", "last", "bottom");
+    if (ladderQ && !/\b((?:18|19|20)\d\d)\b/.test(t)) {
+      try {
+        const rows = await AflData.standings();
+        if (AflData.source === "live") {
+          if (has(t, "wooden spoon", "last", "bottom")) {
+            const x = rows[rows.length - 1];
+            return `<b>${x.name}</b> are currently last with ${x.w} wins and ${x.pts} points.`;
+          }
+          if (has(t, "most wins", "most games")) {
+            const x = [...rows].sort((a, b) => b.w - a.w)[0];
+            return `<b>${x.name}</b> have the most wins so far this season with <b>${x.w}</b>.`;
+          }
+          if (has(t, "percentage")) {
+            const x = [...rows].sort((a, b) => b.pct - a.pct)[0];
+            return `<b>${x.name}</b> have the best percentage at <b>${x.pct.toFixed(1)}%</b>.`;
+          }
+          const top = rows[0];
+          return `<b>${top.name}</b> currently lead the ladder — ${top.pts} pts, ` +
+            `${top.w}–${top.l}${top.d ? "–" + top.d : ""}, ${top.pct.toFixed(1)}% (live).`;
+        }
+      } catch (_) { /* fall through to offline snapshot */ }
+    }
+
+    // Year-specific historical ladder / premier / "who finished top in 2010"
+    const ym = /\b((?:18|19|20)\d\d)\b/.exec(t);
+    if (ym && has(t, "ladder", "top", "won", "win", "premier", "finished", "first", "minor", "standings", "champion")) {
+      const year = +ym[1];
+      try {
+        const rows = await AflData.standings(year);
+        if (AflData.source !== "live" && year !== +AFL_SEASON) {
+          return `Historical data for <b>${year}</b> needs the live API, which isn't reachable ` +
+            `right now. Only the bundled ${AFL_SEASON} snapshot is available offline.`;
+        }
+        const top = rows[0];
+        if (has(t, "premier", "champion", "flag", "won the")) {
+          return `The minor premiers (ladder leaders) in <b>${year}</b> were <b>${top.name}</b> ` +
+            `with ${top.pts} points. (Premiership is decided in the finals.)`;
+        }
+        return `Top of the <b>${year}</b> ladder: <b>${top.name}</b> — ${top.pts} pts, ` +
+          `${top.w}–${top.l}${top.d ? "–" + top.d : ""}, ${top.pct.toFixed(1)}%.`;
+      } catch (_) { /* fall through */ }
+    }
+    return null;
+  }
+
   /** Main entry: returns a Promise<string> (HTML). */
   async function ask(question) {
     const t = norm(question);
-    if (!t) return "Ask me a question about the 2024 AFL season.";
+    if (!t) return "Ask me a question about the AFL season.";
+
+    const dyn = await dynamicAnswer(question, t);
+    if (dyn) return dyn;
 
     for (const intent of intents) {
       if (intent.test(t)) return intent.answer(t);
