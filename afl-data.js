@@ -111,15 +111,17 @@ const AflData = (() => {
   /* ---- public API ---- */
   const currentYear = new Date().getFullYear();
 
+  async function standingsRaw(year = currentYear) {
+    const ttl = year < currentYear ? 86400000 : 60000; // past seasons are immutable
+    const data = await squiggle(`standings;year=${year}`, { ttl });
+    const rows = (data.standings || []).map(normStanding).sort((a, b) => a.rank - b.rank);
+    if (!rows.length) throw new Error("empty");
+    return rows;
+  }
+
   async function standings(year = currentYear) {
-    try {
-      const data = await squiggle(`standings;year=${year}`, { ttl: 60000 });
-      const rows = (data.standings || []).map(normStanding).sort((a, b) => a.rank - b.rank);
-      if (rows.length) return rows;
-      throw new Error("empty");
-    } catch (_) {
-      return offlineStandings();
-    }
+    try { return await standingsRaw(year); }
+    catch (_) { return offlineStandings(); }
   }
 
   async function games(year = currentYear, { round } = {}) {
@@ -151,19 +153,88 @@ const AflData = (() => {
 
   /** Deep historical: full season computed records from that year's games. */
   async function seasonSummary(year) {
-    const list = (await games(year)).filter((g) => g.status === "complete");
+    const all = await games(year);
+    const list = all.filter((g) => g.status === "complete");
     if (!list.length) return null;
-    let biggestMargin = null, highestScore = null;
+
+    let biggestMargin = null, highestScore = null, lowestScore = null;
+    let closest = null, highestCombined = null, totalPoints = 0, totalGoals = 0;
     for (const g of list) {
       const margin = Math.abs((g.home.score || 0) - (g.away.score || 0));
+      const combined = (g.home.score || 0) + (g.away.score || 0);
+      totalPoints += combined;
+      totalGoals += (g.home.goals || 0) + (g.away.goals || 0);
       if (!biggestMargin || margin > biggestMargin.margin) biggestMargin = { game: g, margin };
+      if (margin > 0 && (!closest || margin < closest.margin)) closest = { game: g, margin };
+      if (!highestCombined || combined > highestCombined.combined) highestCombined = { game: g, combined };
       for (const side of [g.home, g.away]) {
-        if (highestScore == null || (side.score || 0) > highestScore.score) {
-          highestScore = { team: side.name, score: side.score, game: g };
-        }
+        const sc = side.score || 0;
+        if (highestScore == null || sc > highestScore.score) highestScore = { team: side.name, score: sc, game: g };
+        if (lowestScore == null || sc < lowestScore.score) lowestScore = { team: side.name, score: sc, game: g };
       }
     }
-    return { year, games: list.length, biggestMargin, highestScore };
+    // Premier = winner of the Grand Final, if that game is in the data.
+    const gf = all.find((g) => /grand final/i.test(g.roundname || "") && g.status === "complete");
+    const premier = gf ? gf.winner : null;
+
+    return {
+      year, games: list.length, premier, grandFinal: gf || null,
+      biggestMargin, highestScore, lowestScore, closest, highestCombined,
+      avgScore: totalPoints / (list.length * 2), avgMargin: null, totalGoals,
+    };
+  }
+
+  /**
+   * All-time aggregation across a season range, built from per-year standings.
+   * Skips years the API can't supply. Returns { available, teams[], ... }.
+   * onProgress(done, total) is called as years complete.
+   */
+  async function allTime(fromYear = FIRST_SEASON, toYear = currentYear, onProgress) {
+    const yrs = [];
+    for (let y = toYear; y >= fromYear; y--) yrs.push(y);
+    const reg = new Map();
+    const get = (abbr, name) => {
+      if (!reg.has(abbr)) reg.set(abbr, {
+        abbr, name, seasons: 0, games: 0, w: 0, l: 0, d: 0, pf: 0, pa: 0,
+        minorPrem: 0, spoons: 0, finalsFinishes: 0, bestPct: 0, bestPctYear: null, first: null, last: null,
+      });
+      return reg.get(abbr);
+    };
+
+    let done = 0, ok = 0;
+    const queue = [...yrs];
+    async function worker() {
+      while (queue.length) {
+        const y = queue.shift();
+        try {
+          const rows = await standingsRaw(y);
+          ok++;
+          const last = rows.length;
+          rows.forEach((r) => {
+            const t = get(r.abbr, r.name);
+            t.seasons++; t.games += r.played; t.w += r.w; t.l += r.l; t.d += r.d;
+            t.pf += r.pf; t.pa += r.pa;
+            if (r.rank === 1) t.minorPrem++;
+            if (r.rank === last) t.spoons++;
+            if (r.rank <= 8) t.finalsFinishes++;
+            if (r.pct > t.bestPct) { t.bestPct = r.pct; t.bestPctYear = y; }
+            t.first = t.first == null ? y : Math.min(t.first, y);
+            t.last = t.last == null ? y : Math.max(t.last, y);
+          });
+        } catch (_) { /* skip missing year */ }
+        done++;
+        if (onProgress) onProgress(done, yrs.length);
+      }
+    }
+    await Promise.all(Array.from({ length: 4 }, worker)); // polite concurrency
+    if (ok === 0) return { available: false, from: fromYear, to: toYear, yearsLoaded: 0, teams: [] };
+
+    const teams = [...reg.values()].map((t) => ({
+      ...t,
+      winPct: t.games ? ((t.w + t.d * 0.5) / t.games) * 100 : 0,
+      pct: t.pa ? (t.pf / t.pa) * 100 : 0,
+    })).sort((a, b) => b.winPct - a.winPct);
+    return { available: true, from: fromYear, to: toYear, yearsLoaded: ok, teams };
   }
 
   /** All-time head-to-head between two teams within a season range. */
@@ -192,7 +263,7 @@ const AflData = (() => {
 
   return {
     team, colorOf, standings, games, roundSnapshot, seasonSummary,
-    headToHead, years, currentYear,
+    allTime, headToHead, years, currentYear, FIRST_SEASON,
     get source() { return source; },
   };
 })();

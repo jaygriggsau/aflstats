@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (target === "live") { startLive(); if (!loaded.live) { loaded.live = true; } }
       else stopLive();
       if (target === "history" && !loaded.history) { loaded.history = true; loadHistory(historyYear.value); }
+      if (target === "alltime" && !loaded.alltime) { loaded.alltime = true; initAllTime(); }
     });
   });
 
@@ -163,13 +164,19 @@ document.addEventListener("DOMContentLoaded", () => {
         AflData.games(+year), AflData.seasonSummary(+year),
       ]);
       if (summary) {
-        const bm = summary.biggestMargin, hs = summary.highestScore;
-        sumEl.innerHTML = `
-          <div class="sumcard"><span>Games played</span><b>${summary.games}</b></div>
-          <div class="sumcard"><span>Biggest margin</span><b>${bm.margin}</b>
-            <small>${esc(bm.game.winner || "")} v ${esc((bm.game.winner === bm.game.home.name ? bm.game.away : bm.game.home).name)}</small></div>
-          <div class="sumcard"><span>Highest score</span><b>${hs.score}</b>
-            <small>${esc(hs.team)} (R${hs.game.round})</small></div>`;
+        const { biggestMargin: bm, highestScore: hs, lowestScore: ls, closest: cl, highestCombined: hc } = summary;
+        const card = (label, value, sub) =>
+          `<div class="sumcard"><span>${label}</span><b>${value}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+        const loser = (g) => (g.winner === g.home.name ? g.away : g.home).name;
+        sumEl.innerHTML =
+          (summary.premier ? card("Premier", esc(summary.premier), "Grand Final winner") : "") +
+          card("Games played", summary.games) +
+          card("Biggest margin", bm.margin, `${esc(bm.game.winner || "")} def ${esc(loser(bm.game))} (R${bm.game.round})`) +
+          card("Highest score", hs.score, `${esc(hs.team)} (R${hs.game.round})`) +
+          card("Lowest score", ls.score, `${esc(ls.team)} (R${ls.game.round})`) +
+          card("Closest game", cl ? cl.margin : "–", cl ? `${esc(cl.game.home.name)} v ${esc(cl.game.away.name)}` : "") +
+          card("Highest aggregate", hc.combined, `${esc(hc.game.home.name)} v ${esc(hc.game.away.name)}`) +
+          card("Avg score / team", summary.avgScore.toFixed(1));
       } else sumEl.innerHTML = "";
       const done = games.filter((g) => g.status === "complete");
       resultsEl.innerHTML = done.map((g) => `
@@ -184,6 +191,97 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
   historyYear.addEventListener("change", () => loadHistory(historyYear.value));
+
+  /* ================= ALL-TIME ================= */
+  const atFrom = $("#at-from"), atTo = $("#at-to");
+  let atSort = { key: "winPct", dir: -1 };
+  let atData = null;
+
+  function initAllTime() {
+    fillYears(atFrom); fillYears(atTo);
+    atTo.value = AflData.currentYear;
+    atFrom.value = Math.max(AflData.FIRST_SEASON, AflData.currentYear - 24); // sensible default window
+    runAllTime();
+  }
+
+  async function runAllTime(fromOverride, toOverride) {
+    const from = +(fromOverride ?? atFrom.value), to = +(toOverride ?? atTo.value);
+    if (from > to) { atFrom.value = to; }
+    const prog = $("#at-progress"), bar = prog.querySelector("i"), label = prog.querySelector("span");
+    prog.hidden = false; bar.style.width = "0%"; label.textContent = "Loading…";
+    $("#at-leaders").innerHTML = ""; $("#at-board").innerHTML = "";
+    try {
+      atData = await AflData.allTime(Math.min(from, to), to, (done, total) => {
+        bar.style.width = `${Math.round((done / total) * 100)}%`;
+        label.textContent = `${done}/${total} seasons`;
+      });
+      refreshBadge();
+      prog.hidden = true;
+      if (!atData.available) {
+        $("#at-board").innerHTML = `<div class="empty">All-time stats need the live API.
+          It isn't reachable here, so this range couldn't be loaded.</div>`;
+        return;
+      }
+      renderAllTimeLeaders();
+      renderAllTimeTable();
+    } catch (e) {
+      prog.hidden = true;
+      $("#at-board").innerHTML = `<div class="empty">Couldn't load all-time stats right now.</div>`;
+    }
+  }
+
+  function renderAllTimeLeaders() {
+    const t = atData.teams;
+    const top = (key, fmt) => { const x = [...t].sort((a, b) => b[key] - a[key])[0]; return { x, v: fmt(x) }; };
+    const cards = [
+      ["Seasons covered", `${atData.yearsLoaded}`, `${atData.from}–${atData.to}`],
+      ["Best win %", ...(() => { const r = top("winPct", (x) => x.winPct.toFixed(1) + "%"); return [r.v, esc(r.x.name)]; })()],
+      ["Most minor premierships", ...(() => { const r = top("minorPrem", (x) => x.minorPrem); return [r.v, esc(r.x.name)]; })()],
+      ["Most wooden spoons", ...(() => { const r = top("spoons", (x) => x.spoons); return [r.v, esc(r.x.name)]; })()],
+      ["Most games", ...(() => { const r = top("games", (x) => x.games.toLocaleString()); return [r.v, esc(r.x.name)]; })()],
+      ["Most wins", ...(() => { const r = top("w", (x) => x.w.toLocaleString()); return [r.v, esc(r.x.name)]; })()],
+    ];
+    $("#at-leaders").innerHTML = cards.map(([l, v, s]) =>
+      `<div class="sumcard"><span>${l}</span><b>${v}</b><small>${s}</small></div>`).join("");
+  }
+
+  function renderAllTimeTable() {
+    const cols = [
+      ["name", "Team", false], ["seasons", "Sea", true], ["games", "P", true],
+      ["w", "W", true], ["l", "L", true], ["d", "D", true], ["winPct", "Win%", true],
+      ["minorPrem", "MP", true], ["finalsFinishes", "F8", true], ["spoons", "WS", true],
+    ];
+    const rows = [...atData.teams].sort((a, b) => {
+      const k = atSort.key; const av = a[k], bv = b[k];
+      const c = typeof av === "string" ? String(av).localeCompare(bv) : av - bv;
+      return c * atSort.dir;
+    });
+    const head = cols.map(([k, lbl, num]) =>
+      `<th class="${num ? "" : "ta-left"} sortable ${atSort.key === k ? "sorted" : ""}" data-k="${k}">${lbl}</th>`).join("");
+    const body = rows.map((t) => `
+      <tr>
+        <td class="ta-left team-cell">${dot(t.abbr)}${esc(t.name)}</td>
+        <td>${t.seasons}</td><td>${t.games}</td><td>${t.w}</td><td>${t.l}</td><td>${t.d}</td>
+        <td class="strong">${t.winPct.toFixed(1)}</td>
+        <td>${t.minorPrem}</td><td>${t.finalsFinishes}</td><td>${t.spoons}</td>
+      </tr>`).join("");
+    $("#at-board").innerHTML = `
+      <p class="muted note">MP = minor premierships · F8 = top-8 finishes · WS = wooden spoons.
+        Click a column to sort.</p>
+      <div class="table-scroll"><table class="data-table"><thead><tr>${head}</tr></thead>
+      <tbody>${body}</tbody></table></div>`;
+    $$("#at-board th.sortable").forEach((th) => th.addEventListener("click", () => {
+      const k = th.dataset.k;
+      atSort = { key: k, dir: atSort.key === k ? -atSort.dir : (k === "name" ? 1 : -1) };
+      renderAllTimeTable();
+    }));
+  }
+
+  $("#at-load").addEventListener("click", () => runAllTime());
+  $("#at-all").addEventListener("click", () => {
+    atFrom.value = AflData.FIRST_SEASON; atTo.value = AflData.currentYear;
+    runAllTime(AflData.FIRST_SEASON, AflData.currentYear);
+  });
 
   /* ================= CHAT ================= */
   const chat = $("#chat");

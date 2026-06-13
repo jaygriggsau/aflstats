@@ -13,7 +13,11 @@ assistant that answers questions in plain English.
   auto-refresh (every 30s); upcoming fixtures and latest results.
 - **Ladder** — live ladder for any season, W/L/D, for/against, %, points.
 - **History** — deep per-season data back to **1897**: final ladder, every
-  result, and computed season records (biggest margin, highest score).
+  result, the premier (from the Grand Final), and season records (biggest
+  margin, highest/lowest score, closest game, highest aggregate, average score).
+- **All-Time** — cross-season aggregation over any year range up to the full
+  1897→now history: per-team all-time record and win %, minor premierships,
+  top-8 finishes and wooden spoons, with a sortable table and leaderboards.
 - **Teams** — per-team stat cards.
 - **Players** — leading goalkickers.
 
@@ -56,7 +60,9 @@ dataset.
 - "Brisbane vs Sydney"
 - "Who won the premiership?"
 - "Live scores" / "Who is winning?"  *(live data)*
-- "Who finished top in 2010?"  *(historical)*
+- "Who won the premiership in 2010?"  *(historical)*
+- "Biggest win in 2016?" / "Highest score in 2000?"  *(season records)*
+- "Best win rate ever?" / "Most minor premierships all time?"  *(all-time)*
 
 ## Run it
 

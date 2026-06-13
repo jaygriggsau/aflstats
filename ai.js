@@ -197,10 +197,11 @@ const AflAI = (() => {
       } catch (_) { /* fall through */ }
     }
 
+    const allTimeQ = has(t, "all time", "all-time", "ever", "in history");
     // Current-season ladder questions — prefer LIVE standings when reachable
     const ladderQ = has(t, "ladder", "top", "lead", "first", "minor premier", "most wins",
                         "most games", "best percentage", "wooden spoon", "last", "bottom");
-    if (ladderQ && !/\b((?:18|19|20)\d\d)\b/.test(t)) {
+    if (ladderQ && !allTimeQ && !/\b((?:18|19|20)\d\d)\b/.test(t)) {
       try {
         const rows = await AflData.standings();
         if (AflData.source === "live") {
@@ -223,21 +224,55 @@ const AflAI = (() => {
       } catch (_) { /* fall through to offline snapshot */ }
     }
 
-    // Year-specific historical ladder / premier / "who finished top in 2010"
+    // All-time leaderboards ("most premierships/flags all time", "best win % ever")
+    if (allTimeQ || has(t, "most premiership", "most flags", "most wooden spoon", "most minor premier")) {
+      try {
+        const data = await AflData.allTime(AflData.FIRST_SEASON, AflData.currentYear);
+        if (!data.available) return null;
+        const top = (k) => [...data.teams].sort((a, b) => b[k] - a[k])[0];
+        if (has(t, "wooden spoon")) { const x = top("spoons"); return `<b>${x.name}</b> have the most wooden spoons (<b>${x.spoons}</b>) since ${data.from}.`; }
+        if (has(t, "minor premier")) { const x = top("minorPrem"); return `<b>${x.name}</b> have the most minor premierships (<b>${x.minorPrem}</b>) since ${data.from}.`; }
+        if (has(t, "win", "best", "record", "percentage")) {
+          const x = top("winPct");
+          return `<b>${x.name}</b> have the best all-time win rate at <b>${x.winPct.toFixed(1)}%</b> ` +
+            `(${x.w}–${x.l}${x.d ? "–" + x.d : ""} across ${x.seasons} seasons since ${data.from}).`;
+        }
+        const x = top("minorPrem");
+        return `Note: the data covers ladders, not finals, so I can't count premierships directly. ` +
+          `Most minor premierships since ${data.from}: <b>${x.name}</b> (${x.minorPrem}).`;
+      } catch (_) { /* fall through */ }
+    }
+
+    // Year-specific historical ladder / premier / records / "who finished top in 2010"
     const ym = /\b((?:18|19|20)\d\d)\b/.exec(t);
-    if (ym && has(t, "ladder", "top", "won", "win", "premier", "finished", "first", "minor", "standings", "champion")) {
+    if (ym && has(t, "ladder", "top", "won", "win", "premier", "finished", "first", "minor",
+                  "standings", "champion", "biggest", "highest", "record", "score")) {
       const year = +ym[1];
       try {
+        if (AflData.source === "unknown") await AflData.standings(year); // prime source flag
+        // premiership questions -> real Grand Final winner when available
+        if (has(t, "premier", "champion", "flag", "won the", "win the")) {
+          const sum = await AflData.seasonSummary(year);
+          if (sum && sum.premier) return `<b>${sum.premier}</b> won the <b>${year}</b> premiership.`;
+          const rows = await AflData.standings(year);
+          if (AflData.source === "live") return `I don't have the ${year} Grand Final result, but the ` +
+            `minor premiers were <b>${rows[0].name}</b>.`;
+        }
+        // season records
+        if (has(t, "biggest", "highest", "record", "score")) {
+          const sum = await AflData.seasonSummary(year);
+          if (sum) {
+            if (has(t, "highest", "score")) return `Highest score of <b>${year}</b>: <b>${sum.highestScore.score}</b> ` +
+              `by ${sum.highestScore.team} (R${sum.highestScore.game.round}).`;
+            return `Biggest winning margin of <b>${year}</b>: <b>${sum.biggestMargin.margin}</b> points.`;
+          }
+        }
         const rows = await AflData.standings(year);
         if (AflData.source !== "live" && year !== +AFL_SEASON) {
           return `Historical data for <b>${year}</b> needs the live API, which isn't reachable ` +
             `right now. Only the bundled ${AFL_SEASON} snapshot is available offline.`;
         }
         const top = rows[0];
-        if (has(t, "premier", "champion", "flag", "won the")) {
-          return `The minor premiers (ladder leaders) in <b>${year}</b> were <b>${top.name}</b> ` +
-            `with ${top.pts} points. (Premiership is decided in the finals.)`;
-        }
         return `Top of the <b>${year}</b> ladder: <b>${top.name}</b> — ${top.pts} pts, ` +
           `${top.w}–${top.l}${top.d ? "–" + top.d : ""}, ${top.pct.toFixed(1)}%.`;
       } catch (_) { /* fall through */ }

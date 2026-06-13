@@ -19,6 +19,7 @@
         <button class="tab" data-view="live" role="tab">Live <span class="live-dot" hidden></span></button>
         <button class="tab" data-view="ladder" role="tab">Ladder</button>
         <button class="tab" data-view="history" role="tab">History</button>
+        <button class="tab" data-view="alltime" role="tab">All-Time</button>
         <button class="tab" data-view="teams" role="tab">Teams</button>
         <button class="tab" data-view="players" role="tab">Players</button>
       </nav>
@@ -108,6 +109,24 @@
       </div>
       <h3 class="sub">Results</h3>
       <div id="history-results" class="results-list"></div>
+    </section>
+
+    <!-- ALL-TIME -->
+    <section id="view-alltime" class="view">
+      <div class="section-head">
+        <h2>All-Time Stats</h2>
+        <div class="head-actions">
+          <label class="toggle">From <select id="at-from" class="year-select"></select></label>
+          <label class="toggle">To <select id="at-to" class="year-select"></select></label>
+          <button id="at-load" class="mini-btn">Load</button>
+          <button id="at-all" class="mini-btn">Load all (1897–now)</button>
+        </div>
+      </div>
+      <p class="muted note">Aggregated from every season's ladder in the range. Loading the full
+        history is ~130 requests — they're cached, so it's quick the second time.</p>
+      <div id="at-progress" class="progress-wrap" hidden><div class="progress"><i></i></div><span></span></div>
+      <div id="at-leaders" class="summary-cards"></div>
+      <div id="at-board"></div>
     </section>
 
     <!-- TEAMS -->
