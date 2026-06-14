@@ -18,6 +18,9 @@ assistant that answers questions in plain English.
 - **All-Time** — cross-season aggregation over any year range up to the full
   1897→now history: per-team all-time record and win %, minor premierships,
   top-8 finishes and wooden spoons, with a sortable table and leaderboards.
+  A **Count premierships** button reads each season's Grand Final to tally
+  actual flags (and runners-up + years won) — handles drawn-GF replays and
+  seasons with no Grand Final.
 - **Teams** — per-team stat cards.
 - **Players** — leading goalkickers.
 
@@ -63,6 +66,7 @@ dataset.
 - "Who won the premiership in 2010?"  *(historical)*
 - "Biggest win in 2016?" / "Highest score in 2000?"  *(season records)*
 - "Best win rate ever?" / "Most minor premierships all time?"  *(all-time)*
+- "Most premierships all time?" / "How many premierships has Geelong won?"  *(flags)*
 
 ## Run it
 

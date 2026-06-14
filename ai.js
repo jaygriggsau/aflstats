@@ -224,8 +224,28 @@ const AflAI = (() => {
       } catch (_) { /* fall through to offline snapshot */ }
     }
 
-    // All-time leaderboards ("most premierships/flags all time", "best win % ever")
-    if (allTimeQ || has(t, "most premiership", "most flags", "most wooden spoon", "most minor premier")) {
+    // Real premiership (flag) counts — reads each season's Grand Final.
+    const flagQ = (has(t, "premiership", "premierships", "flag", "flags") && !has(t, "minor"));
+    if (flagQ && !/\b((?:18|19|20)\d\d)\b/.test(t)) {
+      try {
+        const data = await AflData.premierships(AflData.FIRST_SEASON, AflData.currentYear);
+        if (!data.available) return null;
+        const teamsIn = findTeams(t);
+        if (teamsIn.length === 1) {
+          const x = data.teams.find((r) => r.abbr === teamsIn[0].abbr);
+          if (!x || !x.flags) return `<b>${teamsIn[0].name}</b> have no premierships in the data (${data.from}–${data.to}).`;
+          return `<b>${x.name}</b> have won <b>${x.flags}</b> premiership${x.flags > 1 ? "s" : ""}` +
+            ` (${x.years.join(", ")}).`;
+        }
+        const ranked = data.teams.filter((r) => r.flags > 0);
+        const top = ranked[0];
+        return `Most premierships ${data.from}–${data.to}: <b>${top.name}</b> with <b>${top.flags}</b>. ` +
+          `Next: ` + ranked.slice(1, 4).map((r) => `${r.name} (${r.flags})`).join(", ") + ".";
+      } catch (_) { /* fall through */ }
+    }
+
+    // All-time leaderboards ("most wins/win% ever", "most wooden spoons all time")
+    if (allTimeQ || has(t, "most wooden spoon", "most minor premier")) {
       try {
         const data = await AflData.allTime(AflData.FIRST_SEASON, AflData.currentYear);
         if (!data.available) return null;
@@ -238,8 +258,8 @@ const AflAI = (() => {
             `(${x.w}–${x.l}${x.d ? "–" + x.d : ""} across ${x.seasons} seasons since ${data.from}).`;
         }
         const x = top("minorPrem");
-        return `Note: the data covers ladders, not finals, so I can't count premierships directly. ` +
-          `Most minor premierships since ${data.from}: <b>${x.name}</b> (${x.minorPrem}).`;
+        return `Most minor premierships since ${data.from}: <b>${x.name}</b> (${x.minorPrem}). ` +
+          `Ask about "premierships" for actual flags (from Grand Finals).`;
       } catch (_) { /* fall through */ }
     }
 

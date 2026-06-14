@@ -283,6 +283,50 @@ document.addEventListener("DOMContentLoaded", () => {
     runAllTime(AflData.FIRST_SEASON, AflData.currentYear);
   });
 
+  // Premierships: reads each season's Grand Final (heavier; explicit opt-in).
+  async function runPremierships() {
+    const from = +atFrom.value, to = +atTo.value;
+    const board = $("#at-flags-board");
+    const prog = $("#at-progress"), bar = prog.querySelector("i"), label = prog.querySelector("span");
+    prog.hidden = false; bar.style.width = "0%"; label.textContent = "Reading Grand Finals…";
+    board.innerHTML = "";
+    try {
+      const data = await AflData.premierships(Math.min(from, to), to, (done, total) => {
+        bar.style.width = `${Math.round((done / total) * 100)}%`;
+        label.textContent = `${done}/${total} seasons`;
+      });
+      refreshBadge();
+      prog.hidden = true;
+      if (!data.available) {
+        board.innerHTML = `<div class="empty">Premiership counts need the live API, which isn't reachable here.</div>`;
+        return;
+      }
+      const withFlags = data.teams.filter((t) => t.flags > 0);
+      const leader = withFlags[0];
+      const cards =
+        `<div class="sumcard"><span>Seasons checked</span><b>${data.yearsChecked}</b><small>${data.gfFound} Grand Finals found</small></div>` +
+        (leader ? `<div class="sumcard"><span>Most premierships</span><b>${leader.flags}</b><small>${esc(leader.name)}</small></div>` : "");
+      const rows = withFlags.map((t) => `
+        <tr>
+          <td class="ta-left team-cell">${dot(t.abbr)}${esc(t.name)}</td>
+          <td class="strong">${t.flags}</td><td>${t.runnerUp}</td>
+          <td class="ta-left years">${t.years.join(", ")}</td>
+        </tr>`).join("");
+      board.innerHTML = `
+        <h3 class="sub">🏆 Premierships (${data.from}–${data.to})</h3>
+        <div class="summary-cards">${cards}</div>
+        <p class="muted note">Counted from each season's Grand Final result. A few early seasons
+          (e.g. 1897–1901, 1924) had no Grand Final and contribute no flag.</p>
+        <div class="table-scroll"><table class="data-table"><thead><tr>
+          <th class="ta-left">Team</th><th>Flags</th><th>Runner-up</th><th class="ta-left">Years won</th>
+        </tr></thead><tbody>${rows}</tbody></table></div>`;
+    } catch (e) {
+      prog.hidden = true;
+      board.innerHTML = `<div class="empty">Couldn't load premiership data right now.</div>`;
+    }
+  }
+  $("#at-flags").addEventListener("click", runPremierships);
+
   /* ================= CHAT ================= */
   const chat = $("#chat");
   function bubble(text, who) {

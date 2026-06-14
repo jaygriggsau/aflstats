@@ -237,6 +237,60 @@ const AflData = (() => {
     return { available: true, from: fromYear, to: toYear, yearsLoaded: ok, teams };
   }
 
+  /** The decisive Grand Final for a season (handles drawn-GF replays). */
+  async function grandFinal(year) {
+    const all = await games(year);
+    const gfs = all.filter((g) => /grand final/i.test(g.roundname || "") && g.status === "complete");
+    if (!gfs.length) return null;
+    const gf = gfs.find((g) => g.winner) || gfs[0]; // replay decides a drawn GF
+    if (!gf.winner) return null;
+    const loser = gf.winner === gf.home.name ? gf.away.name : gf.home.name;
+    return { year, winner: gf.winner, loser, game: gf };
+  }
+
+  /**
+   * True premierships all-time: reads each season's Grand Final. Heavier than
+   * allTime() (a full game list per year), so it's an explicit opt-in.
+   * Some early seasons (e.g. 1897-1901, 1924) had no Grand Final — those years
+   * are counted as "checked" but contribute no flag.
+   */
+  async function premierships(fromYear = FIRST_SEASON, toYear = currentYear, onProgress) {
+    const yrs = [];
+    for (let y = toYear; y >= fromYear; y--) yrs.push(y);
+    const reg = new Map();
+    const get = (abbr, name) => {
+      if (!reg.has(abbr)) reg.set(abbr, { abbr, name, flags: 0, runnerUp: 0, years: [] });
+      return reg.get(abbr);
+    };
+
+    let done = 0, ok = 0, found = 0;
+    const queue = [...yrs];
+    async function worker() {
+      while (queue.length) {
+        const y = queue.shift();
+        try {
+          const gf = await grandFinal(y);
+          ok++;
+          if (gf) {
+            found++;
+            const w = team(gf.winner), l = team(gf.loser);
+            const tw = get(w.abbr, w.name); tw.flags++; tw.years.push(y);
+            get(l.abbr, l.name).runnerUp++;
+          }
+        } catch (_) { /* skip year the API can't supply */ }
+        done++;
+        if (onProgress) onProgress(done, yrs.length);
+      }
+    }
+    await Promise.all(Array.from({ length: 4 }, worker));
+    if (ok === 0) return { available: false, from: fromYear, to: toYear, yearsChecked: 0, gfFound: 0, teams: [] };
+
+    const teams = [...reg.values()]
+      .map((t) => ({ ...t, years: t.years.sort((a, b) => a - b) }))
+      .sort((a, b) => b.flags - a.flags || b.runnerUp - a.runnerUp || a.name.localeCompare(b.name));
+    return { available: true, from: fromYear, to: toYear, yearsChecked: ok, gfFound: found, teams };
+  }
+
   /** All-time head-to-head between two teams within a season range. */
   async function headToHead(abbrA, abbrB, fromYear = currentYear, toYear = currentYear) {
     const A = team(abbrA).abbr, B = team(abbrB).abbr;
@@ -263,7 +317,7 @@ const AflData = (() => {
 
   return {
     team, colorOf, standings, games, roundSnapshot, seasonSummary,
-    allTime, headToHead, years, currentYear, FIRST_SEASON,
+    allTime, premierships, grandFinal, headToHead, years, currentYear, FIRST_SEASON,
     get source() { return source; },
   };
 })();
